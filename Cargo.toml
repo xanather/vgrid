@@ -1,0 +1,7 @@
+# Copyright © Viron Software ⨈ 2021
+
+[workspace]
+
+members = [
+    "vgrid"
+]

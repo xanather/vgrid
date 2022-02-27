@@ -1,0 +1,19 @@
+[package]
+name = "vgrid"
+version = "0.1.0"
+edition = "2021"
+build = "build.rs"
+
+[build-dependencies]
+winres = "0.1.12"
+
+[dependencies.windows-sys]
+version = "0.33.0"
+default-features = false
+features = [
+    "Win32_Foundation",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_Graphics_Gdi",
+    "Win32_UI_Shell",
+    "Win32_System_LibraryLoader",
+]
