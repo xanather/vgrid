@@ -1,11 +1,12 @@
 use std::cell::RefCell;
-use std::ffi::OsString;
+use std::ffi::{c_void, OsString};
 use std::os::windows::ffi::OsStrExt;
 use std::str::FromStr;
 use std::usize;
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::Foundation::{*};
-use windows_sys::Win32::Graphics::Gdi::{MONITOR_DEFAULTTONEAREST, MonitorFromPoint};
+use windows_sys::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_EXTENDED_FRAME_BOUNDS, DWMWA_VISIBLE_FRAME_BORDER_THICKNESS, DWMWA_WINDOW_CORNER_PREFERENCE};
+use windows_sys::Win32::Graphics::Gdi::{GetMonitorInfoW, MONITOR_DEFAULTTONEAREST, MonitorFromPoint, MONITORINFO};
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::VK_LSHIFT;
 use windows_sys::Win32::UI::Shell::{*};
 use windows_sys::Win32::UI::WindowsAndMessaging::{*};
@@ -32,7 +33,6 @@ impl Daemon {
         LOCD.with(|loc| { *loc.borrow_mut() = Some(Daemon {
             shift_down: false, start_monitor: 0, start_window: 0, start_pos: POINT { x: 0, y: 0 } }) });
         unsafe {
-
             let instance = GetModuleHandleW(std::ptr::null());
             assert_ne!(instance, 0);
             let icon = LoadImageW(instance, vgrid_ico.as_ptr(), IMAGE_ICON, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
@@ -124,7 +124,7 @@ impl Daemon {
 
     pub unsafe extern "system" fn low_level_keyboard_proc(n_code: i32, w_param: usize, l_param: isize) -> LRESULT {
         const WM_KEYDOWN_S: usize = WM_KEYDOWN as usize;
-        const WM_UP_S: usize = WM_KEYUP as usize;
+        const WM_KEYUP_S: usize = WM_KEYUP as usize;
         if n_code == HC_ACTION as i32 {
             match w_param {
                 WM_KEYDOWN_S => {
@@ -133,7 +133,7 @@ impl Daemon {
                         LOCD.with(|loc| { loc.borrow_mut().as_mut().unwrap().shift_down = true; });
                     }
                 },
-                WM_UP_S => {
+                WM_KEYUP_S => {
                     let keyboard_struct: *mut KBDLLHOOKSTRUCT = l_param as *mut KBDLLHOOKSTRUCT;
                     if (*keyboard_struct).vkCode == VK_LSHIFT as u32 {
                         LOCD.with(|loc| { loc.borrow_mut().as_mut().unwrap().shift_down = false; });
@@ -175,6 +175,9 @@ impl Daemon {
                     });
                 },
                 WM_XBUTTONUP_S => {
+                    let mut move_it = false;
+                    let mut move_it_bounds: RECT = RECT { left: 0, top: 0, right: 0, bottom: 0 };
+                    let mut move_it_wnd: isize = 0;
                     LOCD.with(|loc| {
                         let mut locdd_t = loc.borrow_mut();
                         let locdd = locdd_t.as_mut().unwrap();
@@ -186,13 +189,67 @@ impl Daemon {
                                 if ((*mouse_struct).mouseData >> 16) & 0xffff == XBUTTON2 {
                                     if MonitorFromPoint((*mouse_struct).pt, MONITOR_DEFAULTTONEAREST) == locdd.start_monitor {
 
+                                        // Do size of grid.
+                                        let mut info: MONITORINFO = std::mem::zeroed();
+                                        info.cbSize = std::mem::size_of::<MONITORINFO>() as u32;
+                                        let mut r = GetMonitorInfoW(locdd.start_monitor, &mut info) as i32;
+                                        assert_ne!(r, 0);
+                                        let work_width = info.rcWork.right - info.rcWork.left;
+                                        let work_height = info.rcWork.bottom - info.rcWork.top;
+                                        let remain_horizontal = work_width % 256;
+                                        let remain_vertical = work_height % 256;
+                                        let mut squares_horizontal = work_width as f64 / 256.0;
+                                        let mut squares_vertical = work_height as f64 / 256.0;
+                                        squares_horizontal = squares_horizontal.trunc();
+                                        squares_vertical = squares_vertical.trunc();
+                                        squares_horizontal = 256.0 + (remain_horizontal as f64 / squares_horizontal);
+                                        squares_vertical = 256.0 + (remain_vertical as f64 / squares_vertical);
+
+                                        // Do new position.
+                                        let new_point = (*mouse_struct).pt;
+                                        let mut bounds = RECT {
+                                            left: if locdd.start_pos.x > new_point.x { new_point.x } else { locdd.start_pos.x },
+                                            top: if locdd.start_pos.y > new_point.y { new_point.y } else { locdd.start_pos.y },
+                                            right: if locdd.start_pos.x <= new_point.x { new_point.x } else { locdd.start_pos.x },
+                                            bottom: if locdd.start_pos.y <= new_point.y { new_point.y } else { locdd.start_pos.y }
+                                        };
+                                        bounds.left = ((bounds.left as f64 / squares_horizontal).floor() * squares_horizontal) as i32;
+                                        bounds.top = ((bounds.top as f64 / squares_vertical).floor() * squares_vertical) as i32;
+                                        bounds.right = ((bounds.right as f64 / squares_horizontal).ceil() * squares_horizontal) as i32;
+                                        bounds.bottom = ((bounds.bottom as f64 / squares_vertical).ceil() * squares_vertical) as i32;
+
+                                        // Adjust DWM border
+                                        let (mut rect, mut frame, mut border) = (std::mem::zeroed::<RECT>(), std::mem::zeroed::<RECT>(), std::mem::zeroed::<RECT>());
+                                        let mut border_thickness: i32 = 0;
+                                        r = GetWindowRect(locdd.start_window, &mut rect);
+                                        assert_ne!(r, 0);
+                                        r = DwmGetWindowAttribute(locdd.start_window, DWMWA_EXTENDED_FRAME_BOUNDS, &mut frame as *mut RECT as *mut c_void, std::mem::size_of::<RECT>() as u32);
+                                        assert_eq!(r, S_OK);
+                                        r = DwmGetWindowAttribute(locdd.start_window, DWMWA_VISIBLE_FRAME_BORDER_THICKNESS, &mut border_thickness as *mut i32 as *mut c_void, 4);
+                                        assert_eq!(r, S_OK);
+                                        border.left = frame.left - rect.left;
+                                        border.top = frame.top - rect.top;
+                                        border.right = rect.right - frame.right;
+                                        border.bottom = rect.bottom - frame.bottom;
+                                        bounds.left -= border.left;
+                                        bounds.top -= border.top;
+                                        bounds.right += border.right;
+                                        bounds.bottom += border.bottom;
+
+                                        move_it = true;
+                                        move_it_bounds = bounds;
+                                        move_it_wnd = locdd.start_window;
                                     }
                                     locdd.start_window = 0;
-                                    println!("woot");
                                 }
                             }
                         }
                     });
+                    if move_it {
+                        // Because SetWindowPos can trigger message pump we call it when LOCD thread local variable is not borrowed.
+                        let r = SetWindowPos(move_it_wnd, 0, move_it_bounds.left, move_it_bounds.top, move_it_bounds.right - move_it_bounds.left, move_it_bounds.bottom - move_it_bounds.top, SWP_NOACTIVATE | SWP_NOZORDER) as i32;
+                        assert_ne!(r, 0);
+                    }
                 },
                 _ => ()
             }
