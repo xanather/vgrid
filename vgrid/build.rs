@@ -7,13 +7,13 @@ fn main() {
     res.set_icon_with_id("vgrid.ico", "vgrid");
     res.set("CompanyName", "Jordan Singh");
     res.set("FileDescription", "VGrid Binary");
-    res.set("FileVersion", "1.0.0.0");
+    res.set("FileVersion", "0.2.0.0");
     res.set("InternalName", "VGrid");
     res.set("LegalCopyright", "Copyright © Jordan Singh 2022");
     res.set("LegalTrademarks1", "Do not distribute.");
     res.set("OriginalFilename", "vgrid.exe");
     res.set("ProductName", "VGrid");
-    res.set("ProductVersion", "1.0.0.0");
+    res.set("ProductVersion", "0.2.0.0");
     res.set_version_info(winres::VersionInfo::PRODUCTVERSION, 0x0001000000000000);
     res.set_version_info(winres::VersionInfo::FILEVERSION, 0x0001000000000000);
 

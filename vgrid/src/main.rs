@@ -1,4 +1,5 @@
 // Copyright © Jordan Singh 2022
+#![windows_subsystem = "windows"]
 
 mod daemon;
 use daemon::Daemon;
