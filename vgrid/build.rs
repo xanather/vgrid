@@ -14,8 +14,8 @@ fn main() {
     res.set("OriginalFilename", "vgrid.exe");
     res.set("ProductName", "VGrid");
     res.set("ProductVersion", "0.2.0.0");
-    res.set_version_info(winres::VersionInfo::PRODUCTVERSION, 0x0001000000000000);
-    res.set_version_info(winres::VersionInfo::FILEVERSION, 0x0001000000000000);
+    res.set_version_info(winres::VersionInfo::PRODUCTVERSION, 0x0000000200000000);
+    res.set_version_info(winres::VersionInfo::FILEVERSION, 0x0000000200000000);
 
     res.set_manifest(r#"
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0" xmlns:asmv3="urn:schemas-microsoft-com:asm.v3">
