@@ -32,9 +32,9 @@ impl Daemon {
         let vgrid_wnd: Vec<u16> = OsString::from_str("VGRID_WND").unwrap().encode_wide().chain(Some(0)).into_iter().collect();
         let i18t_vgrid_monitor: Vec<u16> = OsString::from_str("VGrid Monitor").unwrap().encode_wide().chain(Some(0)).into_iter().collect();
 
-        LOCD.with(|loc| { *loc.borrow_mut() = Some(Daemon {
-            shift_down: false, start_monitor: 0, start_window: 0, start_pos: POINT { x: 0, y: 0 } }) });
         unsafe {
+            // Startup.
+            LOCD.with(|loc| { *loc.borrow_mut() = Some(std::mem::zeroed())});
             let instance = GetModuleHandleW(std::ptr::null());
             assert_ne!(instance, 0);
             let icon = LoadImageW(instance, vgrid_ico.as_ptr(), IMAGE_ICON, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
@@ -74,7 +74,7 @@ impl Daemon {
             r = GetMessageW(&mut msg, 0, 0, 0);
             assert_ne!(r, -1);
             while r != 0 {
-                TranslateMessage(&mut msg);
+                TranslateMessage(&msg);
                 DispatchMessageW(&msg);
                 r = GetMessageW(&mut msg, 0, 0, 0);
                 assert_ne!(r, -1);
@@ -115,7 +115,7 @@ impl Daemon {
                     assert_ne!(r, 0);
                     r = SetForegroundWindow(hwnd);
                     assert_ne!(r, 0);
-                    TrackPopupMenu(h_pop_menu, TPM_LEFTALIGN | TPM_LEFTBUTTON | TPM_BOTTOMALIGN, pt.x, pt.y, 0, hwnd, std::ptr::null());
+                    r = TrackPopupMenu(h_pop_menu, TPM_LEFTALIGN | TPM_LEFTBUTTON | TPM_BOTTOMALIGN, pt.x, pt.y, 0, hwnd, std::ptr::null());
                     assert_ne!(r, 0);
                 }
             }
@@ -161,7 +161,7 @@ impl Daemon {
                             locdd.start_window = RealChildWindowFromPoint(GetDesktopWindow(), (*mouse_struct).pt);
                             if locdd.start_window != 0 {
                                 // Ensure that we did not get the desktop window.
-                                if locdd.start_window == GetDesktopWindow() || IsChild(GetShellWindow(), locdd.start_window) != 0{
+                                if locdd.start_window == GetDesktopWindow() || IsChild(GetShellWindow(), locdd.start_window) != 0 {
                                     locdd.start_window = 0;
                                 }
                             }
