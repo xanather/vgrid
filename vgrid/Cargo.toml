@@ -1,3 +1,5 @@
+# Copyright © Jordan Singh 2022
+
 [package]
 name = "vgrid"
 version = "0.1.0"
@@ -9,7 +11,6 @@ winres = "0.1.12"
 
 [dependencies.windows-sys]
 version = "0.33.0"
-default-features = false
 features = [
     "Win32_Foundation",
     "Win32_UI_WindowsAndMessaging",

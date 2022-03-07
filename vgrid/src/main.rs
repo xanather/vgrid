@@ -1,3 +1,5 @@
+// Copyright © Jordan Singh 2022
+
 mod daemon;
 use daemon::Daemon;
 

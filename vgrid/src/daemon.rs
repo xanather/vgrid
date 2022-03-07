@@ -1,3 +1,5 @@
+// Copyright © Jordan Singh 2022
+
 use std::cell::RefCell;
 use std::ffi::{c_void, OsString};
 use std::os::windows::ffi::OsStrExt;
@@ -5,8 +7,8 @@ use std::str::FromStr;
 use std::usize;
 use windows_sys::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows_sys::Win32::Foundation::{*};
-use windows_sys::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_EXTENDED_FRAME_BOUNDS, DWMWA_VISIBLE_FRAME_BORDER_THICKNESS, DWMWA_WINDOW_CORNER_PREFERENCE};
-use windows_sys::Win32::Graphics::Gdi::{GetMonitorInfoW, MONITOR_DEFAULTTONEAREST, MonitorFromPoint, MONITORINFO};
+use windows_sys::Win32::Graphics::Dwm::{*};
+use windows_sys::Win32::Graphics::Gdi::{*};
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::VK_LSHIFT;
 use windows_sys::Win32::UI::Shell::{*};
 use windows_sys::Win32::UI::WindowsAndMessaging::{*};
@@ -25,9 +27,9 @@ const WM_USER_SHELLICON: u32 = WM_USER + 1;
 
 impl Daemon {
     pub fn run_for_thread() {
-        let vgrid_ico: Vec<u16> = OsString::from_str("viron-vgrid").unwrap().encode_wide().chain(Some(0)).into_iter().collect();
-        let vgrid_class: Vec<u16> = OsString::from_str("VIRON_VGRID_CLASS").unwrap().encode_wide().chain(Some(0)).into_iter().collect();
-        let vgrid_wnd: Vec<u16> = OsString::from_str("VIRON_VGRID_WND").unwrap().encode_wide().chain(Some(0)).into_iter().collect();
+        let vgrid_ico: Vec<u16> = OsString::from_str("vgrid").unwrap().encode_wide().chain(Some(0)).into_iter().collect();
+        let vgrid_class: Vec<u16> = OsString::from_str("VGRID_CLASS").unwrap().encode_wide().chain(Some(0)).into_iter().collect();
+        let vgrid_wnd: Vec<u16> = OsString::from_str("VGRID_WND").unwrap().encode_wide().chain(Some(0)).into_iter().collect();
         let i18t_vgrid_monitor: Vec<u16> = OsString::from_str("VGrid Monitor").unwrap().encode_wide().chain(Some(0)).into_iter().collect();
 
         LOCD.with(|loc| { *loc.borrow_mut() = Some(Daemon {
@@ -220,12 +222,9 @@ impl Daemon {
 
                                         // Adjust DWM border
                                         let (mut rect, mut frame, mut border) = (std::mem::zeroed::<RECT>(), std::mem::zeroed::<RECT>(), std::mem::zeroed::<RECT>());
-                                        let mut border_thickness: i32 = 0;
                                         r = GetWindowRect(locdd.start_window, &mut rect);
                                         assert_ne!(r, 0);
                                         r = DwmGetWindowAttribute(locdd.start_window, DWMWA_EXTENDED_FRAME_BOUNDS, &mut frame as *mut RECT as *mut c_void, std::mem::size_of::<RECT>() as u32);
-                                        assert_eq!(r, S_OK);
-                                        r = DwmGetWindowAttribute(locdd.start_window, DWMWA_VISIBLE_FRAME_BORDER_THICKNESS, &mut border_thickness as *mut i32 as *mut c_void, 4);
                                         assert_eq!(r, S_OK);
                                         border.left = frame.left - rect.left;
                                         border.top = frame.top - rect.top;
@@ -235,6 +234,17 @@ impl Daemon {
                                         bounds.top -= border.top;
                                         bounds.right += border.right;
                                         bounds.bottom += border.bottom;
+
+                                        // Fix some undocumented window offset thing to do with Win11.
+                                        // Some magic that Microsoft did to make rounded bordered windows work I assume...
+                                        let mut client_pos: POINT = std::mem::zeroed::<POINT>();
+                                        r = ClientToScreen(locdd.start_window, &mut client_pos);
+                                        assert_ne!(r, 0);
+                                        if client_pos.x - rect.left == 6 { // TODO: This would only work with 96 DPI I assume... Might also break non-Win11... revisit later.
+                                            bounds.left += 2;
+                                            bounds.bottom -= 2;
+                                            bounds.right -= 2;
+                                        }
 
                                         move_it = true;
                                         move_it_bounds = bounds;

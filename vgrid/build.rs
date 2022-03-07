@@ -1,13 +1,15 @@
+// Copyright © Jordan Singh 2022
+
 use winres::WindowsResource;
 
 fn main() {
     let mut res = WindowsResource::new();
-    res.set_icon_with_id("vgrid.ico", "viron-vgrid");
-    res.set("CompanyName", "Viron Software");
+    res.set_icon_with_id("vgrid.ico", "vgrid");
+    res.set("CompanyName", "Jordan Singh");
     res.set("FileDescription", "VGrid Binary");
     res.set("FileVersion", "1.0.0.0");
     res.set("InternalName", "VGrid");
-    res.set("LegalCopyright", "Copyright © Viron Software ⨈ 2021");
+    res.set("LegalCopyright", "Copyright © Jordan Singh 2022");
     res.set("LegalTrademarks1", "Do not distribute.");
     res.set("OriginalFilename", "vgrid.exe");
     res.set("ProductName", "VGrid");
