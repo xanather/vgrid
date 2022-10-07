@@ -235,17 +235,6 @@ impl Daemon {
                                         bounds.right += border.right;
                                         bounds.bottom += border.bottom;
 
-                                        // Fix some undocumented window offset thing to do with Win11.
-                                        // Some magic that Microsoft did to make rounded bordered windows work I assume...
-                                        let mut client_pos: POINT = std::mem::zeroed::<POINT>();
-                                        r = ClientToScreen(locdd.start_window, &mut client_pos);
-                                        assert_ne!(r, 0);
-                                        if client_pos.x - rect.left == 6 { // TODO: This would only work with 96 DPI I assume... Might also break non-Win11... revisit later.
-                                            bounds.left += 2;
-                                            bounds.bottom -= 2;
-                                            bounds.right -= 2;
-                                        }
-
                                         move_it = true;
                                         move_it_bounds = bounds;
                                         move_it_wnd = locdd.start_window;
