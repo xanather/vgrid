@@ -1,7 +1,7 @@
 // Copyright © Jordan Singh 2022
 
 use std::cell::RefCell;
-use std::ffi::{c_void, OsString};
+use std::ffi::{c_int, c_void, OsString};
 use std::os::windows::ffi::OsStrExt;
 use std::str::FromStr;
 use std::usize;
@@ -248,6 +248,9 @@ impl Daemon {
                         // Because SetWindowPos can trigger message pump we call it when LOCD thread local variable is not borrowed.
                         let r = SetWindowPos(move_it_wnd, 0, move_it_bounds.left, move_it_bounds.top, move_it_bounds.right - move_it_bounds.left, move_it_bounds.bottom - move_it_bounds.top, SWP_NOACTIVATE | SWP_NOZORDER) as i32;
                         assert_ne!(r, 0);
+                        let immersive_dark_mode_true = 1;
+                        DwmSetWindowAttribute(move_it_wnd, 20, &immersive_dark_mode_true as *const c_int as *const c_void, std::mem::size_of::<i32>() as u32);
+                        // We ignore the result code as some wnd's may not support this attribute.
                     }
                 },
                 _ => ()
