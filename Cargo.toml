@@ -1,6 +1,7 @@
 # Copyright © Jordan Singh 2022
 
 [workspace]
+resolver = "2"
 
 members = [
     "vgrid"
