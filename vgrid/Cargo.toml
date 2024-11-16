@@ -10,7 +10,7 @@ build = "build.rs"
 winres = "0.1.12"
 
 [dependencies.windows-sys]
-version = "0.33.0"
+version = "0.59.0"
 features = [
     "Win32_Foundation",
     "Win32_UI_WindowsAndMessaging",

@@ -17,8 +17,8 @@ thread_local!(static LOCD: RefCell<Option<Daemon>> = RefCell::new(None));
 
 pub struct Daemon {
     shift_down: bool,
-    start_monitor: isize,
-    start_window: isize,
+    start_monitor: HMONITOR,
+    start_window: HWND,
     start_pos: POINT
 }
 
@@ -36,9 +36,9 @@ impl Daemon {
             // Startup.
             LOCD.with(|loc| { *loc.borrow_mut() = Some(std::mem::zeroed())});
             let instance = GetModuleHandleW(std::ptr::null());
-            assert_ne!(instance, 0);
+            assert!(!instance.is_null());
             let icon = LoadImageW(instance, vgrid_ico.as_ptr(), IMAGE_ICON, 0, 0, LR_DEFAULTSIZE | LR_SHARED);
-            assert_ne!(icon, 0);
+            assert!(!icon.is_null());
 
             // Create an invisible message window.
             let mut class_ex: WNDCLASSEXW = std::mem::zeroed();
@@ -48,8 +48,8 @@ impl Daemon {
             class_ex.lpszClassName = vgrid_class.as_ptr();
             let mut r: i32 = RegisterClassExW(&class_ex) as i32;
             assert_ne!(r, 0);
-            let hwnd = CreateWindowExW(0, vgrid_class.as_ptr(), vgrid_wnd.as_ptr(), 0, 0, 0, 0, 0, HWND_MESSAGE, 0, 0, std::ptr::null());
-            assert_ne!(hwnd, 0);
+            let hwnd = CreateWindowExW(0, vgrid_class.as_ptr(), vgrid_wnd.as_ptr(), 0, 0, 0, 0, 0, HWND_MESSAGE, std::ptr::null_mut(), std::ptr::null_mut(), std::ptr::null());
+            assert!(!hwnd.is_null());
 
             // Create sys tray icon.
             let mut nid: NOTIFYICONDATAW = std::mem::zeroed();
@@ -65,18 +65,18 @@ impl Daemon {
 
             // Create hooks
             let keyboard_hook = SetWindowsHookExW(WH_KEYBOARD_LL, Some(Daemon::low_level_keyboard_proc), instance, 0);
-            assert_ne!(keyboard_hook, 0);
+            assert!(!keyboard_hook.is_null());
             let mouse_hook = SetWindowsHookExW(WH_MOUSE_LL, Some(Daemon::low_level_mouse_proc), instance, 0);
-            assert_ne!(mouse_hook, 0);
+            assert!(!mouse_hook.is_null());
 
             // Enter message loop
             let mut msg: MSG = std::mem::zeroed();
-            r = GetMessageW(&mut msg, 0, 0, 0);
+            r = GetMessageW(&mut msg, std::ptr::null_mut(), 0, 0);
             assert_ne!(r, -1);
             while r != 0 {
                 TranslateMessage(&msg);
                 DispatchMessageW(&msg);
-                r = GetMessageW(&mut msg, 0, 0, 0);
+                r = GetMessageW(&mut msg, std::ptr::null_mut(), 0, 0);
                 assert_ne!(r, -1);
             }
 
@@ -109,7 +109,7 @@ impl Daemon {
                     let mut r = GetCursorPos(&mut pt);
                     assert_ne!(r, 0);
                     let h_pop_menu = CreatePopupMenu();
-                    assert_ne!(h_pop_menu, 0);
+                    assert!(!h_pop_menu.is_null());
                     let i18t_quit: Vec<u16> = OsString::from_str("Quit").unwrap().encode_wide().chain(Some(0)).into_iter().collect();
                     r = AppendMenuW(h_pop_menu, MF_BYPOSITION | MF_STRING, IDM_USER_QUIT, i18t_quit.as_ptr());
                     assert_ne!(r, 0);
@@ -144,7 +144,7 @@ impl Daemon {
                 _ => ()
             }
         }
-        return CallNextHookEx(0, n_code, w_param, l_param);
+        return CallNextHookEx(std::ptr::null_mut(), n_code, w_param, l_param);
     }
 
     pub unsafe extern "system" fn low_level_mouse_proc(n_code: i32, w_param: usize, l_param: isize) -> LRESULT {
@@ -157,20 +157,20 @@ impl Daemon {
                         let mut locdd_t = loc.borrow_mut();
                         let locdd = locdd_t.as_mut().unwrap();
                         let mouse_struct: *mut MSLLHOOKSTRUCT = l_param as *mut MSLLHOOKSTRUCT;
-                        if ((*mouse_struct).mouseData >> 16) & 0xffff == XBUTTON2 && locdd.start_window == 0 && locdd.shift_down {
+                        if ((*mouse_struct).mouseData >> 16) & 0xffff == XBUTTON2 as u32 && locdd.start_window.is_null() && locdd.shift_down {
                             locdd.start_window = RealChildWindowFromPoint(GetDesktopWindow(), (*mouse_struct).pt);
-                            if locdd.start_window != 0 {
+                            if !locdd.start_window.is_null() {
                                 // Ensure that we did not get the desktop window.
                                 if locdd.start_window == GetDesktopWindow() || IsChild(GetShellWindow(), locdd.start_window) != 0 {
-                                    locdd.start_window = 0;
+                                    locdd.start_window = std::ptr::null_mut();
                                 }
                             }
-                            if locdd.start_window != 0 {
+                            if !locdd.start_window.is_null() {
                                 // Ensure we get a valid monitor.
                                 locdd.start_pos = (*mouse_struct).pt;
                                 locdd.start_monitor = MonitorFromPoint((*mouse_struct).pt, MONITOR_DEFAULTTONEAREST);
-                                if locdd.start_monitor == 0 {
-                                    locdd.start_window = 0;
+                                if locdd.start_monitor.is_null() {
+                                    locdd.start_window = std::ptr::null_mut();
                                 }
                             }
                         }
@@ -179,16 +179,16 @@ impl Daemon {
                 WM_XBUTTONUP_S => {
                     let mut move_it = false;
                     let mut move_it_bounds: RECT = RECT { left: 0, top: 0, right: 0, bottom: 0 };
-                    let mut move_it_wnd: isize = 0;
+                    let mut move_it_wnd: HWND = std::ptr::null_mut();
                     LOCD.with(|loc| {
                         let mut locdd_t = loc.borrow_mut();
                         let locdd = locdd_t.as_mut().unwrap();
-                        if locdd.start_window != 0 {
+                        if !locdd.start_window.is_null() {
                             if !locdd.shift_down {
-                                locdd.start_window = 0;
+                                locdd.start_window = std::ptr::null_mut();
                             } else {
                                 let mouse_struct: *mut MSLLHOOKSTRUCT = l_param as *mut MSLLHOOKSTRUCT;
-                                if ((*mouse_struct).mouseData >> 16) & 0xffff == XBUTTON2 {
+                                if ((*mouse_struct).mouseData >> 16) & 0xffff == XBUTTON2 as u32 {
                                     if MonitorFromPoint((*mouse_struct).pt, MONITOR_DEFAULTTONEAREST) == locdd.start_monitor {
 
                                         // Do size of grid.
@@ -224,7 +224,7 @@ impl Daemon {
                                         let (mut rect, mut frame, mut border) = (std::mem::zeroed::<RECT>(), std::mem::zeroed::<RECT>(), std::mem::zeroed::<RECT>());
                                         r = GetWindowRect(locdd.start_window, &mut rect);
                                         assert_ne!(r, 0);
-                                        r = DwmGetWindowAttribute(locdd.start_window, DWMWA_EXTENDED_FRAME_BOUNDS, &mut frame as *mut RECT as *mut c_void, std::mem::size_of::<RECT>() as u32);
+                                        r = DwmGetWindowAttribute(locdd.start_window, DWMWA_EXTENDED_FRAME_BOUNDS as u32, &mut frame as *mut RECT as *mut c_void, std::mem::size_of::<RECT>() as u32);
                                         assert_eq!(r, S_OK);
                                         border.left = frame.left - rect.left;
                                         border.top = frame.top - rect.top;
@@ -239,14 +239,14 @@ impl Daemon {
                                         move_it_bounds = bounds;
                                         move_it_wnd = locdd.start_window;
                                     }
-                                    locdd.start_window = 0;
+                                    locdd.start_window = std::ptr::null_mut();
                                 }
                             }
                         }
                     });
                     if move_it {
                         // Because SetWindowPos can trigger message pump we call it when LOCD thread local variable is not borrowed.
-                        let r = SetWindowPos(move_it_wnd, 0, move_it_bounds.left, move_it_bounds.top, move_it_bounds.right - move_it_bounds.left, move_it_bounds.bottom - move_it_bounds.top, SWP_NOACTIVATE | SWP_NOZORDER) as i32;
+                        let r = SetWindowPos(move_it_wnd, std::ptr::null_mut(), move_it_bounds.left, move_it_bounds.top, move_it_bounds.right - move_it_bounds.left, move_it_bounds.bottom - move_it_bounds.top, SWP_NOACTIVATE | SWP_NOZORDER) as i32;
                         assert_ne!(r, 0);
                         let immersive_dark_mode_true = 1;
                         DwmSetWindowAttribute(move_it_wnd, 20, &immersive_dark_mode_true as *const c_int as *const c_void, std::mem::size_of::<i32>() as u32);
@@ -256,6 +256,6 @@ impl Daemon {
                 _ => ()
             }
         }
-        return CallNextHookEx(0, n_code, w_param, l_param);
+        return CallNextHookEx(std::ptr::null_mut(), n_code, w_param, l_param);
     }
 }
