@@ -215,10 +215,18 @@ impl Daemon {
                                             right: if locdd.start_pos.x <= new_point.x { new_point.x } else { locdd.start_pos.x },
                                             bottom: if locdd.start_pos.y <= new_point.y { new_point.y } else { locdd.start_pos.y }
                                         };
+                                        bounds.left -= info.rcWork.left;
+                                        bounds.top -= info.rcWork.top;
+                                        bounds.right -= info.rcWork.left;
+                                        bounds.bottom -= info.rcWork.top;
                                         bounds.left = ((bounds.left as f64 / squares_horizontal).floor() * squares_horizontal) as i32;
                                         bounds.top = ((bounds.top as f64 / squares_vertical).floor() * squares_vertical) as i32;
                                         bounds.right = ((bounds.right as f64 / squares_horizontal).ceil() * squares_horizontal) as i32;
                                         bounds.bottom = ((bounds.bottom as f64 / squares_vertical).ceil() * squares_vertical) as i32;
+                                        bounds.left += info.rcWork.left;
+                                        bounds.top += info.rcWork.top;
+                                        bounds.right += info.rcWork.left;
+                                        bounds.bottom += info.rcWork.top;
 
                                         // Adjust DWM border
                                         let (mut rect, mut frame, mut border) = (std::mem::zeroed::<RECT>(), std::mem::zeroed::<RECT>(), std::mem::zeroed::<RECT>());
